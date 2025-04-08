@@ -25,6 +25,16 @@ end top_basys3;
 architecture top_basys3_arch of top_basys3 is
 
     -- signal declarations
+    signal w_fsm_reset    : std_logic;
+    signal w_fsm_out1     : std_logic_vector (3 downto 0);
+    signal w_slowclk      : std_logic;
+    
+    signal w_tdm4_reset   : std_logic;
+    signal w_tdm4_out     : std_logic_vector (3 downto 0);
+    
+    signal w_data1        : std_logic_vector (3 downto 0); --F
+    signal w_data3        : std_logic_vector (3 downto 0); --F
+    signal w_data0        : std_logic_vector (3 downto 0); --second elevator placeholder
     
   
 	-- component declarations
@@ -70,14 +80,54 @@ architecture top_basys3_arch of top_basys3 is
 	
 begin
 	-- PORT MAPS ----------------------------------------
-    	
+	    clkdiv_inst : clock_divider 		--instantiation of clock_divider to take 
+            generic map ( k_DIV => 850000 ) -- 60 Hz clock from 100 MHz
+            port map (						  
+                i_clk   => clk,
+                i_reset => btnL,
+                o_clk   => w_slowclk
+            ); 
+        sevenseg_unit : sevenseg_decoder
+            port map (
+                i_Hex       => w_tdm4_out,
+                o_seg_n     => seg
+            );
+        
+        elevator_unit : elevator_controller_fsm
+            port map (
+                i_clk       => w_slowclk,        
+                i_reset     => w_fsm_reset,
+                is_stopped  => sw(15),
+                go_up_down  => sw(14), 
+                o_floor 	=> w_fsm_out1
+            );
+        
+        tdm4_unit : TDM4
+            port map (
+                i_clk       => clk,
+                i_reset		=> w_tdm4_reset,
+                i_D3 		=> w_data3,
+		        i_D2 		=> w_fsm_out1,
+		        i_D1 		=> w_data1,
+		        i_D0 		=> w_data0,
+		        o_data		=> w_tdm4_out,
+		        o_sel		=> an
+	        );
+            
+           
 	
 	-- CONCURRENT STATEMENTS ----------------------------
-	
+	-- placeholders for elevators / F display
+	w_data0      <= "0000";
+	w_data1      <= x"F";
+	w_data3      <= x"F";
 	-- LED 15 gets the FSM slow clock signal. The rest are grounded.
-	
+	led(15) <= w_slowclk;
 	-- leave unused switches UNCONNECTED. Ignore any warnings this causes.
 	
 	-- reset signals
+	w_fsm_reset  <= btnR or btnU;
+	w_tdm4_reset <= btnL or btnU;
+	
 	
 end top_basys3_arch;
